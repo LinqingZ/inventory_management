@@ -1,95 +1,225 @@
+"use client";
 import Image from "next/image";
-import styles from "./page.module.css";
+import { useState, useEffect } from "react";
+import { firestore } from "@/firebase";
+import {
+  Box,
+  Modal,
+  Stack,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  ThemeProvider,
+  createTheme,
+} from "@mui/material";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+} from "firebase/firestore";
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: "#1976d2",
+    },
+    secondary: {
+      main: "#dc004e",
+    },
+  },
+  typography: {
+    h1: {
+      fontSize: "2.5rem",
+      fontWeight: 700,
+    },
+    h2: {
+      fontSize: "1.5rem",
+      fontWeight: 500,
+    },
+  },
+});
 
 export default function Home() {
+  const [inventory, setInventory] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [itemName, setItemName] = useState("");
+
+  const updateInventory = async () => {
+    const snapshot = query(collection(firestore, "inventory"));
+    const docs = await getDocs(snapshot);
+    const inventoryList = [];
+    docs.forEach((doc) => {
+      inventoryList.push({
+        name: doc.id,
+        ...doc.data(),
+      });
+    });
+    setInventory(inventoryList);
+  };
+
+  const removeItem = async (item) => {
+    if (!item) return;
+    const docRef = doc(collection(firestore, "inventory"), item);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const { quantity } = docSnap.data();
+      if (quantity === 1) {
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, { quantity: quantity - 1 });
+      }
+    }
+    await updateInventory();
+  };
+
+  const addItem = async (item) => {
+    if (!item) return;
+    const docRef = doc(collection(firestore, "inventory"), item);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const { quantity } = docSnap.data();
+      await setDoc(docRef, { quantity: quantity + 1 });
+    } else {
+      await setDoc(docRef, { quantity: 1 });
+    }
+    await updateInventory();
+  };
+
+  useEffect(() => {
+    updateInventory();
+  }, []);
+
+  const handleOpen = () => setOpen(true);
+  const handleClose = () => setOpen(false);
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>app/page.js</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <ThemeProvider theme={theme}>
+      <Box
+        width="100vw"
+        height="100vh"
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        gap={2}
+        padding={4}
+      >
+        <Modal open={open} onClose={handleClose}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            width="100vw"
+            height="100vh"
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
+            <Box
+              width={400}
+              bgcolor="white"
+              border="2px solid #000"
+              boxShadow={24}
+              p={4}
+              display="flex"
+              flexDirection="column"
+              gap={3}
+            >
+              <Typography variant="h6">Add Item</Typography>
+              <TextField
+                variant="outlined"
+                fullWidth
+                value={itemName}
+                onChange={(e) => {
+                  setItemName(e.target.value.toLowerCase());
+                }}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  if (itemName.trim()) {
+                    addItem(itemName);
+                    setItemName("");
+                    handleClose();
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </Box>
+          </Box>
+        </Modal>
+        <Typography variant="h1">Inventory Management</Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleOpen}
         >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+          Add New Item
+        </Button>
+        <Paper elevation={3} sx={{ width: "800px", padding: 2 }}>
+          <Box
+            width="100%"
+            height="100px"
+            display="flex"
+            bgcolor="#ADD8E6"
+            alignItems="center"
+            justifyContent="center"
+            mb={2}
+          >
+            <Typography variant="h2" color="#333">
+              Inventory Items
+            </Typography>
+          </Box>
+          <Stack width="100%" height="300px" spacing={2} overflow="auto">
+            {inventory.map(({ name, quantity }) => (
+              <Paper
+                key={name}
+                elevation={1}
+                sx={{
+                  width: "100%",
+                  minHeight: "150px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 2,
+                  bgcolor: "#f0f0f0",
+                }}
+              >
+                <Typography variant="h2" color="#333" textAlign="center">
+                  {name.charAt(0).toUpperCase() + name.slice(1)}
+                </Typography>
+                <Typography variant="h2" color="#333" textAlign="center">
+                  {quantity}
+                </Typography>
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => {
+                      addItem(name);
+                    }}
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => {
+                      removeItem(name);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        </Paper>
+      </Box>
+    </ThemeProvider>
   );
 }
